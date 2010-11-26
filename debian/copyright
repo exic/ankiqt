@@ -1,0 +1,11 @@
+Anki was debianised by Andreas Bombe <aeb@debian.org>.  It was downloaded from
+http://ichi2.net/anki/download/
+
+Upstream author:  Damien Elmes, with contributors listed in Help>About.
+
+License:
+ # Copyright: Damien Elmes <anki@ichi2.net>
+ # License: GNU GPL, version 3 or later; http://www.gnu.org/copyleft/gpl.html
+
+On Debian systems, the complete text of the GNU General Public License version 3
+can be found in /usr/share/common-licenses/GPL-3.

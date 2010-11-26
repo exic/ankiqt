@@ -1,0 +1,66 @@
+#!/usr/bin/make -f
+
+<<<<<<< HEAD
+build:
+=======
+build: build-stamp
+build-stamp:
+	dh_testdir
+	bunzip2 </usr/share/unicode/Unihan.txt.bz2 >Unihan.txt
+	python libanki/anki/features/chinese/save_unihan.py
+	touch build-stamp
+>>>>>>> debian patch
+
+movedebfiles:
+	dh_testdir
+	-tar -cf upstreamdebfiles.tar debian/dirs debian/docs debian/pycompat
+	rm -f debian/dirs debian/docs debian/pycompat
+
+unmovedebfiles:
+	dh_testdir
+	if [ -f upstreamdebfiles.tar ]; then tar -xf upstreamdebfiles.tar; fi
+	rm -f upstreamdebfiles.tar
+
+binary: binary-arch binary-indep
+binary-arch: build
+
+binary-indep: build movedebfiles
+	dh_testdir
+	dh_testroot
+	dh_clean
+	dh_installdirs usr/bin
+	dh_install
+	cp debian/anki-launcher debian/anki/usr/bin/anki
+	dh_installchangelogs
+	dh_installdocs README README.development README.translating CREDITS
+<<<<<<< HEAD
+	dh_installmenu
+	dh_desktop
+	dh_python
+=======
+	dh_installexamples libanki/samples/*.anki
+	dh_installmenu
+	dh_desktop
+	dh_pysupport
+>>>>>>> debian patch
+	dh_installman debian/anki.1
+	dh_compress -X.anki
+	chmod a-x debian/anki/usr/share/anki/ankiqt/__init__.py
+	dh_fixperms
+	dh_installdeb
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+
+clean: unmovedebfiles
+	dh_testdir
+	dh_testroot
+<<<<<<< HEAD
+=======
+	rm -f build-stamp
+	rm -f Unihan.txt unihan.db
+>>>>>>> debian patch
+	find -name \*.py[co] -exec rm {} \;
+	dh_clean
+
+.PHONY: build clean binary binary-arch binary-indep movedebfiles unmovedebfiles
