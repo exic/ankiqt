@@ -4,6 +4,14 @@
 from PyQt4 import QtGui, QtCore
 from anki.hooks import addHook
 Qt = QtCore.Qt
+import logging
+import sys
+
+logging.basicConfig(
+    stream=sys.stdout,
+    level=logging.DEBUG,
+    format='[%(asctime)s] [%(levelname)s] %(message)s'
+)
 
 class AnkiTrayIcon(QtCore.QObject):
     """
@@ -33,6 +41,7 @@ class AnkiTrayIcon(QtCore.QObject):
                 self.ti.show()
 
     def showAll(self):
+        logging.debug("hi there, showing all.")
         for w in self.tray_hidden:
             if w.isWindow() and w.isHidden():
                 w.showNormal()
@@ -44,6 +53,7 @@ class AnkiTrayIcon(QtCore.QObject):
         self.updateTooltip()
 
     def hideAll(self):
+        logging.debug("hi there, hiding all.")
         self.tray_hidden = []
         activeWindow = QtGui.QApplication.activeModalWidget()
         for w in QtGui.QApplication.topLevelWidgets():
@@ -54,6 +64,10 @@ class AnkiTrayIcon(QtCore.QObject):
                 self.tray_hidden.append(w)
         self.anki_visible = False
         self.updateTooltip()
+        self.ti.show()
+        logging.debug("hi there, hiding all: done")
+        logging.debug("also, ti is visible: %s" % self.ti.isVisible())
+#        logging.debug("also, ti: %s" % dir(self.ti))
 
     def activated(self, reason):
         if self.anki_visible:
@@ -70,6 +84,7 @@ class AnkiTrayIcon(QtCore.QObject):
             self.last_focus = old
 
     def setToolTip(self, message):
+#        logging.debug("setting tooltip message: %s" % message)
         self.ti.setToolTip(message)
 
     def showMessage(self, message):
@@ -96,7 +111,10 @@ class AnkiTrayIcon(QtCore.QObject):
             msg += _("Click to hide Anki")
         else:
             msg += _("Click to show Anki")
+
+        logging.debug("updating tooltip to %s" % msg)
         self.setToolTip(msg)
 
     def onQuit(self):
+        logging.debug("also, ti is visible: %s" % self.ti.isVisible())
         self.ti.deleteLater()

@@ -190,7 +190,7 @@ class AnkiQt(QMainWindow):
         self.addView(self.statusView)
 
     def setupTray(self):
-	self.trayIcon = ui.tray.AnkiTrayIcon(self)
+        self.trayIcon = ui.tray.AnkiTrayIcon(self)
 
     def setupErrorHandler(self):
         class ErrorPipe(object):
