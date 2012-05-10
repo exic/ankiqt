@@ -13,6 +13,7 @@ from ankiqt.ui.utils import saveGeom, restoreGeom, saveSplitter, restoreSplitter
 from ankiqt import ui
 from anki.sound import clearAudioQueue
 from anki.hooks import addHook, removeHook
+from logging import debug
 
 class FocusButton(QPushButton):
     def focusInEvent(self, evt):
@@ -172,6 +173,11 @@ question or answer on all cards."""), parent=self)
         n = _("Add")
         self.parent.deck.setUndoStart(n)
 
+        debug("trying to add...")
+        for field in fact.fields:
+            debug(dir(field))
+            debug("value: %s" % field.value)
+            debug("values: %s" % field.fact.values())
         fact = self.addFact(fact)
         if not fact:
             return

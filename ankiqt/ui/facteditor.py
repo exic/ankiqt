@@ -15,6 +15,7 @@ import ankiqt
 from ankiqt.ui.utils import mungeQA, saveGeom, restoreGeom
 from anki.hooks import addHook, removeHook, runHook, runFilter
 from sqlalchemy.exc import InvalidRequestError
+from logging import debug
 
 clozeColour = "#0000ff"
 
@@ -811,11 +812,13 @@ class FactEditor(object):
             return
         re1 = "\[(?:<.+?>)?.+?(:(.+?))?\](?:</.+?>)?"
         re2 = "\[(?:<.+?>)?(.+?)(:.+?)?\](?:</.+?>)?"
+        debug("src: %s" % src)
         # add brackets because selected?
         cursor = src.textCursor()
         oldSrc = None
         if cursor.hasSelection():
             oldSrc = src.toHtml()
+            debug("oldSrc: %s" % oldSrc)
             s = cursor.selectionStart()
             e = cursor.selectionEnd()
             cursor.setPosition(e)
@@ -837,10 +840,11 @@ class FactEditor(object):
             dst = self.fields[self.fact.fields[0].name][1]
             if dst == w:
                 return
-        # check if there's alredy something there
+        # check if there's already something there
         if not oldSrc:
             oldSrc = src.toHtml()
         oldDst = dst.toHtml()
+        debug("oldDst: %s", oldDst)
         if unicode(dst.toPlainText()):
             if (self.lastCloze and
                 self.lastCloze[1] == oldSrc and
@@ -856,6 +860,8 @@ class FactEditor(object):
                     help="ClozeDeletion",
                     parent=self.parent)
                 return
+
+        debug("i am here")
         # check if there's anything to change
         if not re.search("\[.+?\]", unicode(src.toPlainText())):
             ui.utils.showInfo(
@@ -876,6 +882,8 @@ class FactEditor(object):
                      % clozeColour, s)
         src.setHtml(new)
         dst.setHtml(old)
+        debug("got src: %s", unicode(src.toHtml()))
+        debug("got dst: %s", unicode(dst.toHtml()))
         self.lastCloze = (oldSrc, unicode(src.toHtml()),
                           unicode(dst.toHtml()))
         self.saveFields()
