@@ -880,8 +880,8 @@ class FactEditor(object):
         new = re.sub(re1, repl, s)
         old = re.sub(re2, '<font color="%s"><b>\\1</b></font>'
                      % clozeColour, s)
-        src.setHtml(new)
-        dst.setHtml(old)
+        src.setHtml(tidyHTML(new))
+        dst.setHtml(tidyHTML(old))
         debug("got src: %s", unicode(src.toHtml()))
         debug("got dst: %s", unicode(dst.toHtml()))
         self.lastCloze = (oldSrc, unicode(src.toHtml()),
@@ -910,7 +910,7 @@ class FactEditor(object):
     def fieldsAreBlank(self):
         for (field, widget) in self.fields.values():
             value = tidyHTML(unicode(widget.toHtml()))
-            if value:
+            if value and value != "<br />":
                 return False
         return True
 
