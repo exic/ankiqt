@@ -17,8 +17,9 @@ import aqt.editor, aqt.modelchooser, aqt.deckchooser
 
 class AddCards(QDialog):
 
-    def __init__(self, mw):
+    def __init__(self, name, mw):
         QDialog.__init__(self, None, Qt.Window)
+        self.name = name
         self.mw = mw
         self.form = aqt.forms.addcards.Ui_Dialog()
         self.form.setupUi(self)
@@ -69,6 +70,8 @@ class AddCards(QDialog):
         bb.addButton(self.helpButton,
                                         QDialogButtonBox.HelpRole)
         self.connect(self.helpButton, SIGNAL("clicked()"), self.helpRequested)
+
+
         # history
         b = bb.addButton(
             _("History")+ u" ▾", ar)
@@ -177,7 +180,7 @@ question on all cards."""), help="AddItems")
         self.deckChooser.cleanup()
         self.mw.maybeReset()
         saveGeom(self, "add")
-        aqt.dialogs.close("AddCards")
+        aqt.dialogs.close(self.name)
         QDialog.reject(self)
 
     def canClose(self):
