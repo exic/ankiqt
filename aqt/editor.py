@@ -419,8 +419,8 @@ class Editor(object):
         but = b("change_colour", self.onChangeCol, _("F8"),
           _("Change colour (F8)"), text=u"▾")
         but.setFixedWidth(12)
-        but = b("cloze", self.onCloze, _("Ctrl+Shift+C"),
-                _("Cloze deletion (Ctrl+Shift+C)"), text="[...]")
+        but = b("cloze", self.onCloze, _("F9"),
+                _("Cloze deletion (F9)"), text="[...]")
         but.setFixedWidth(24)
         s = self.clozeShortcut2 = QShortcut(
             QKeySequence(_("Ctrl+Alt+Shift+C")), self.parentWindow)
