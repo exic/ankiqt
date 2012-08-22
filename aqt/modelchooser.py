@@ -10,7 +10,7 @@ import aqt
 
 class ModelChooser(QHBoxLayout):
 
-    def __init__(self, mw, widget, label=True):
+    def __init__(self, mw, widget, label=True, name = ""):
         QHBoxLayout.__init__(self)
         self.widget = widget
         self.mw = mw
@@ -19,7 +19,8 @@ class ModelChooser(QHBoxLayout):
         self.setMargin(0)
         self.setSpacing(8)
         self.setupModels()
-        addHook('reset', self.onReset)
+        self.name = name
+        addHook('reset' + name, self.onReset)
         self.widget.setLayout(self)
 
     def setupModels(self):
@@ -42,7 +43,7 @@ class ModelChooser(QHBoxLayout):
         self.updateModels()
 
     def cleanup(self):
-        remHook('reset', self.onReset)
+        remHook('reset' + self.name, self.onReset)
 
     def onReset(self):
         self.updateModels()
@@ -77,8 +78,9 @@ class ModelChooser(QHBoxLayout):
         cdeck = self.deck.decks.current()
         cdeck['mid'] = m['id']
         self.deck.decks.save(cdeck)
-        runHook("currentModelChanged")
-        self.mw.reset()
+        runHook("currentModelChanged" + self.name)
+        self.updateModels()
+#        self.mw.reset()
 
     def updateModels(self):
         self.models.setText(self.deck.models.current()['name'])

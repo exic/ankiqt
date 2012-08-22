@@ -33,8 +33,8 @@ class AddCards(QDialog):
         self.history = []
         self.forceClose = False
         restoreGeom(self, "add")
-        addHook('reset', self.onReset)
-        addHook('currentModelChanged', self.onReset)
+        addHook('reset' + name, self.onReset)
+        addHook('currentModelChanged' + name, self.onReset)
         self.show()
         self.setupNewNote()
 
@@ -44,7 +44,7 @@ class AddCards(QDialog):
 
     def setupChoosers(self):
         self.modelChooser = aqt.modelchooser.ModelChooser(
-            self.mw, self.form.modelArea)
+            self.mw, self.form.modelArea, True, self.name)
         self.deckChooser = aqt.deckchooser.DeckChooser(
             self.mw, self.form.deckArea)
 
@@ -171,8 +171,8 @@ question on all cards."""), help="AddItems")
     def reject(self):
         if not self.canClose():
             return
-        remHook('reset', self.onReset)
-        remHook('currentModelChanged', self.onReset)
+        remHook('reset' + self.name, self.onReset)
+        remHook('currentModelChanged' + self.name, self.onReset)
         clearAudioQueue()
         self.removeTempNote(self.editor.note)
         self.editor.setNote(None)
