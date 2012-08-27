@@ -5,7 +5,7 @@
 from aqt.qt import *
 from aqt.utils import askUser, getOnlyText, openLink, showWarning, showInfo, \
     shortcut
-from anki.utils import isMac, ids2str
+from anki.utils import isMac, ids2str, fmtTimeSpan
 import anki.js
 from anki.errors import DeckRenameError
 import aqt
@@ -54,6 +54,8 @@ or importing text files."""))
         elif cmd == "drag":
             draggedDeckDid, ontoDeckDid = arg.split(',')
             self._dragDeckOnto(draggedDeckDid, ontoDeckDid)
+        elif cmd == "collapse":
+            self._collapse(arg)
 
     def _keyHandler(self, evt):
         key = unicode(evt.text())
@@ -81,6 +83,8 @@ body { margin: 1em; -webkit-user-select: none; }
 .current { background-color: #e7e7e7; }
 .decktd { min-width: 15em; }
 .count { width: 6em; text-align: right; }
+.collapse { color: #000; text-decoration:none; display:inline-block;
+    width: 1em; }
 """ % dict(width=_dragIndicatorBorderWidth)
 
     _body = """
@@ -88,6 +92,9 @@ body { margin: 1em; -webkit-user-select: none; }
 <table cellspacing=0 cellpading=3>
 %(tree)s
 </table>
+
+<br>
+%(stats)s
 </center>
 <script>
     $( init );
@@ -122,12 +129,25 @@ body { margin: 1em; -webkit-user-select: none; }
 </script>
 """
 
-    def _renderPage(self):
+    def _renderPage(self, reuse=False):
         css = self.mw.sharedCSS + self._css
-        tree = self._renderDeckTree(self.mw.col.sched.deckDueTree())
-        self.web.stdHtml(self._body%dict(tree=tree), css=css,
+        if not reuse:
+            self._dueTree = self.mw.col.sched.deckDueTree()
+        tree = self._renderDeckTree(self._dueTree)
+        stats = self._renderStats()
+        self.web.stdHtml(self._body%dict(tree=tree, stats=stats), css=css,
                          js=anki.js.jquery+anki.js.ui)
         self._drawButtons()
+
+    def _renderStats(self):
+        cards, thetime = self.mw.col.db.first("""
+select count(), sum(time)/1000 from revlog
+where id > ?""", (self.mw.col.sched.dayCutoff-86400)*1000)
+        cards = cards or 0
+        thetime = thetime or 0
+        buf = _("Studied %(a)d cards in %(b)s today.") % dict(
+            a=cards, b=fmtTimeSpan(thetime))
+        return buf
 
     def _renderDeckTree(self, nodes, depth=0):
         if not nodes:
@@ -148,6 +168,14 @@ body { margin: 1em; -webkit-user-select: none; }
 
     def _deckRow(self, node, depth):
         name, did, due, lrn, new, children = node
+        # parent toggled for collapsing
+        for parent in self.mw.col.decks.parents(did):
+            if parent['collapsed']:
+                buff = ""
+                return buff
+        prefix = "-"
+        if self.mw.col.decks.get(did)['collapsed']:
+            prefix = "+"
         due += lrn
         def indent():
             return "&nbsp;"*6*depth
@@ -157,9 +185,13 @@ body { margin: 1em; -webkit-user-select: none; }
             klass = 'deck'
         buf = "<tr class='%s' id='%d'>" % (klass, did)
         # deck link
+        if children:
+            collapse = "<a class=collapse href='collapse:%d'>%s</a>" % (did, prefix)
+        else:
+            collapse = "<span class=collapse></span>"
         buf += """
-<td class=decktd colspan=5>%s<a class=deck href='open:%d'>%s</a></td>"""% (
-            indent(), did, name)
+<td class=decktd colspan=5>%s%s<a class=deck href='open:%d'>%s</a></td>"""% (
+            indent(), collapse, did, name)
         # due counts
         def nonzeroColour(cnt, colour):
             if not cnt:
@@ -194,8 +226,12 @@ body { margin: 1em; -webkit-user-select: none; }
 
     def _showOptions(self, did):
         m = QMenu(self.mw)
+        a = m.addAction(_("Collapse"))
+        a.connect(a, SIGNAL("triggered()"), lambda did=did: self._collapse(did))
         a = m.addAction(_("Rename"))
         a.connect(a, SIGNAL("triggered()"), lambda did=did: self._rename(did))
+        a = m.addAction(_("Options"))
+        a.connect(a, SIGNAL("triggered()"), lambda did=did: self._options(did))
         a = m.addAction(_("Delete"))
         a.connect(a, SIGNAL("triggered()"), lambda did=did: self._delete(did))
         m.exec_(QCursor.pos())
@@ -208,13 +244,18 @@ body { margin: 1em; -webkit-user-select: none; }
         newName = newName.replace("'", "").replace('"', "")
         if not newName or newName == oldName:
             return
-
         try:
             self.mw.col.decks.rename(deck, newName)
         except DeckRenameError, e:
             return showWarning(e.description)
-
         self.show()
+
+    def _options(self, did):
+        self.mw.onDeckConf(self.mw.col.decks.get(did))
+
+    def _collapse(self, did):
+        self.mw.col.decks.collapse(did)
+        self._renderPage(reuse=True)
 
     def _dragDeckOnto(self, draggedDeckDid, ontoDeckDid):
         try:
@@ -271,5 +312,4 @@ body { margin: 1em; -webkit-user-select: none; }
         self.bottom.web.setLinkHandler(self._linkHandler)
 
     def _onShared(self):
-        print "fixme: check & warn if schema modified first"
         openLink(aqt.appShared+"decks/")

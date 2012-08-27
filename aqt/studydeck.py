@@ -5,7 +5,7 @@
 from aqt.qt import *
 import aqt
 from anki.utils import ids2str
-from aqt.utils import showInfo, showWarning, openHelp, getOnlyText
+from aqt.utils import showInfo, showWarning, openHelp, getOnlyText, shortcut
 from operator import itemgetter
 from anki.hooks import addHook, remHook
 
@@ -29,14 +29,13 @@ class StudyDeck(QDialog):
         else:
             b = QPushButton(_("Add"))
             b.setShortcut(QKeySequence("Ctrl+N"))
-            b.setToolTip(_("Add New Deck (Ctrl+N)"))
+            b.setToolTip(shortcut(_("Add New Deck (Ctrl+N)")))
             self.form.buttonBox.addButton(b, QDialogButtonBox.ActionRole)
             b.connect(b, SIGNAL("clicked()"), self.onAddDeck)
         if title:
             self.setWindowTitle(title)
         if not names:
             names = sorted(self.mw.col.decks.allNames(dyn=dyn))
-            current = self.mw.col.decks.current()['name']
             self.nameFunc = None
             self.origNames = names
         else:
