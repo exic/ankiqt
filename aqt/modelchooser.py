@@ -14,7 +14,7 @@ class ModelChooser(QHBoxLayout):
         QHBoxLayout.__init__(self)
         self.widget = widget
         self.mw = mw
-        self.deck = mw.col
+        self.col = mw.col
         self.label = label
         self.setMargin(0)
         self.setSpacing(8)
@@ -28,25 +28,25 @@ class ModelChooser(QHBoxLayout):
             self.modelLabel = QLabel(_("Type"))
             self.addWidget(self.modelLabel)
         # models box
-        self.models = QPushButton()
-        #self.models.setStyleSheet("* { text-align: left; }")
-        self.models.setToolTip(shortcut(_("Change Note Type (Ctrl+N)")))
+        self.button = QPushButton()
+        #self.button.setStyleSheet("* { text-align: left; }")
+        self.button.setToolTip(shortcut(_("Change Note Type (Ctrl+N)")))
         s = QShortcut(QKeySequence(_("Ctrl+N")), self.widget)
         s.connect(s, SIGNAL("activated()"), self.onModelChange)
-        self.addWidget(self.models)
-        self.connect(self.models, SIGNAL("clicked()"), self.onModelChange)
+        self.addWidget(self.button)
+        self.connect(self.button, SIGNAL("clicked()"), self.onModelChange)
         # layout
         sizePolicy = QSizePolicy(
             QSizePolicy.Policy(7),
             QSizePolicy.Policy(0))
-        self.models.setSizePolicy(sizePolicy)
-        self.updateModels()
+        self.button.setSizePolicy(sizePolicy)
+        self.updateButtonText()
 
     def cleanup(self):
         remHook('reset' + self.name, self.onReset)
 
     def onReset(self):
-        self.updateModels()
+        self.updateButtonText()
 
     def show(self):
         self.widget.show()
@@ -60,12 +60,12 @@ class ModelChooser(QHBoxLayout):
 
     def onModelChange(self):
         from aqt.studydeck import StudyDeck
-        current = self.deck.models.current()['name']
+        current = self.col.models.current()['name']
         # edit button
         edit = QPushButton(_("Manage"))
         self.connect(edit, SIGNAL("clicked()"), self.onEdit)
         def nameFunc():
-            return sorted(self.deck.models.allNames())
+            return sorted(self.col.models.allNames())
         ret = StudyDeck(
             self.mw, names=nameFunc,
             accept=_("Choose"), title=_("Choose Note Type"),
@@ -73,14 +73,28 @@ class ModelChooser(QHBoxLayout):
             buttons=[edit], cancel=False)
         if not ret.name:
             return
-        m = self.deck.models.byName(ret.name)
-        self.deck.conf['curModel'] = m['id']
-        cdeck = self.deck.decks.current()
+
+        self.updateCollection(ret.name)
+
+
+    def updateCollection(self, new_model_name = None):
+        really_changed = new_model_name
+        if not really_changed:
+            # only update collection with current name
+            new_model_name = str(self.button.text())
+
+        m = self.col.models.byName(new_model_name)
+        if not m:
+            return
+        self.col.conf['curModel'] = m['id']
+        cdeck = self.col.decks.current()
         cdeck['mid'] = m['id']
-        self.deck.decks.save(cdeck)
-        runHook("currentModelChanged" + self.name)
-        self.updateModels()
+        self.col.decks.save(cdeck)
+        self.updateButtonText()
+
+        if really_changed:
+            runHook("currentModelChanged" + self.name)
 #        self.mw.reset()
 
-    def updateModels(self):
-        self.models.setText(self.deck.models.current()['name'])
+    def updateButtonText(self):
+        self.button.setText(self.col.models.current()['name'])

@@ -80,6 +80,7 @@ class AddCards(QDialog):
         self.historyButton = b
 
     def setupNewNote(self, set=True):
+        self.modelChooser.updateCollection()
         f = self.mw.col.newNote()
         f.tags = f.model()['tags']
         if set:
