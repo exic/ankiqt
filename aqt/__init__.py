@@ -7,7 +7,7 @@ import locale, gettext
 import anki.lang
 from anki.consts import HELP_SITE as appHelpSite
 
-appVersion="2.0-beta19"
+appVersion="2.0-rc1"
 appWebsite="http://ankisrs.net/"
 appChanges="http://ankisrs.net/docs/dev/changes.html"
 appDonate="http://ankisrs.net/support/"
@@ -37,6 +37,8 @@ class DialogManager(object):
             "EditCurrent": [editcurrent.EditCurrent, None],
         }
 
+        self.add_dialog_count = 0
+
     def open(self, name, *args):
         (creator, instance) = self._dialogs[name]
         if instance:
@@ -44,6 +46,11 @@ class DialogManager(object):
             instance.raise_()
             return instance
         else:
+            if name is "AddCards":
+                name = "AddCards_%s" % self.add_dialog_count
+                args = [name, args[0]]
+                self._dialogs[name] = [addcards.AddCards, None]
+                self.add_dialog_count += 1
             instance = creator(*args)
             self._dialogs[name][1] = instance
             return instance
