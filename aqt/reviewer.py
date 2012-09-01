@@ -245,6 +245,10 @@ The front of this card is empty. Please run Tools>Maintenance>Empty Cards.""")
         # render and update bottom
         a = self._mungeQA(a)
         self.web.eval("_updateQA(%s, true);" % json.dumps(a))
+
+        if PYQT_VERSION <= 263939:
+            self.web.page().mainFrame().setHtml(self.web.page().mainFrame().toHtml())
+
         self._showEaseButtons()
         # user hook
         runHook('showAnswer')
