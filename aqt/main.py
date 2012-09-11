@@ -19,6 +19,7 @@ from aqt.utils import saveGeom, restoreGeom, showInfo, showWarning, \
     saveState, restoreState, getOnlyText, askUser, GetTextDialog, \
     askUserDialog, applyStyles, getText, showText, showCritical, getFile, \
     tooltip, openHelp, openLink
+from anki.lang import ngettext
 
 class AnkiQt(QMainWindow):
     def __init__(self, app, profileManager, args):
@@ -162,6 +163,7 @@ class AnkiQt(QMainWindow):
     def onAddProfile(self):
         name = getOnlyText(_("Name:"))
         if name:
+            name = name.strip()
             if name in self.pm.profiles():
                 return showWarning(_("Name exists."))
             if not self.profileNameOk(name):
@@ -649,7 +651,7 @@ upload, overwriting any changes either here or on AnkiWeb. Proceed?""")):
             deck = self.col.decks.current()
         if deck['dyn']:
             import aqt.dyndeckconf
-            aqt.dyndeckconf.DeckConf(self)
+            aqt.dyndeckconf.DeckConf(self, deck=deck)
         else:
             import aqt.deckconf
             aqt.deckconf.DeckConf(self, deck)
@@ -892,16 +894,16 @@ will be lost. Continue?"""))
             return
         report = self.col.emptyCardReport(cids)
         self.progress.finish()
-        diag, box = showText(
-            _("%(cnt)d cards to delete:\n\n%(rep)s") % dict(
-                cnt=len(cids), rep=report), run=False)
+        part1 = ngettext("%d card", "%d cards", len(cids)) % len(cids)
+        part1 = _("%s to delete:") % part1
+        diag, box = showText(part1 + "\n\n" + report, run=False)
         box.addButton(_("Delete Cards"), QDialogButtonBox.AcceptRole)
         box.button(QDialogButtonBox.Close).setDefault(True)
         def onDelete():
             QDialog.accept(diag)
             self.checkpoint(_("Delete Empty"))
             self.col.remCards(cids)
-            tooltip(_("%d cards deleted.") % len(cids))
+            tooltip(ngettext("%d card deleted.", "%d cards deleted.", len(cids)) % len(cids))
             self.reset()
         diag.connect(box, SIGNAL("accepted()"), onDelete)
         diag.show()

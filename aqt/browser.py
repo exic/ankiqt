@@ -17,6 +17,7 @@ from anki.hooks import runHook, addHook, remHook
 from aqt.webview import AnkiWebView
 from aqt.toolbar import Toolbar
 from anki.consts import *
+from anki.lang import ngettext
 
 COLOUR_SUSPENDED = "#FFFFB2"
 COLOUR_MARKED = "#D9B2E9"
@@ -847,7 +848,7 @@ border: 1px solid #000; padding: 3px; '>%s</div>""" % rep
                 "%d%%" % (factor/10) if factor else "",
                 cs.time(taken)) + "</tr>"
         s += "</table>"
-        if cnt != self.card.reps:
+        if cnt < self.card.reps:
             s += _("""\
 Note: Some of the history is missing. For more information, \
 please see the browser documentation.""")
@@ -1179,13 +1180,16 @@ update cards set usn=?, mod=?, did=? where odid=0 and id in """ + ids2str(
         self.mw.progress.start()
         res = self.mw.col.findDupes(fname, search)
         t = "<html><body>"
-        t += _("Found %(a)d duplicates in %(b)d notes.") % dict(
-            a=sum(len(r[1]) for r in res), b=len(res))
+        groups = len(res)
+        notes = sum(len(r[1]) for r in res)
+        part1 = ngettext("%d group", "%d groups", groups) % groups
+        part2 = ngettext("%d note.", "%d notes.", notes) % notes
+        t += _("Found %(a)s across %(b)s") % dict(a=part1, b=part2)
         t += "<p><ol>"
         for val, nids in res:
             t += '<li><a href="%s">%s</a>: %s</a>' % (
                 "nid:" + ",".join(str(id) for id in nids),
-                _("%d notes") % len(nids),
+                ngettext("%d note", "%d notes", len(nids)) % len(nids),
                 cgi.escape(val))
         t += "</ol>"
         t += "</body></html>"

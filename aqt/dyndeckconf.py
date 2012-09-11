@@ -9,10 +9,10 @@ from aqt.utils import showInfo, showWarning, openHelp, getOnlyText, askUser
 from operator import itemgetter
 
 class DeckConf(QDialog):
-    def __init__(self, mw, first=False, search=""):
+    def __init__(self, mw, first=False, search="", deck=None):
         QDialog.__init__(self, mw)
         self.mw = mw
-        self.deck = self.mw.col.decks.current()
+        self.deck = deck or self.mw.col.decks.current()
         # context-sensitive extras like deck:foo
         self.search = search
         self.form = aqt.forms.dyndconf.Ui_Dialog()
@@ -27,7 +27,7 @@ class DeckConf(QDialog):
         self.setWindowModality(Qt.WindowModal)
         self.connect(self.form.buttonBox,
                      SIGNAL("helpRequested()"),
-                     lambda: openHelp("cramming"))
+                     lambda: openHelp("filtered"))
         self.setWindowTitle(_("Options for %s") % self.deck['name'])
         self.setupExamples()
         self.setupOrder()

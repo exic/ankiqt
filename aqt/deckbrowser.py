@@ -10,6 +10,7 @@ import anki.js
 from anki.errors import DeckRenameError
 import aqt
 from anki.sound import clearAudioQueue
+from anki.lang import ngettext
 
 class DeckBrowser(object):
 
@@ -100,6 +101,7 @@ body { margin: 1em; -webkit-user-select: none; }
     $( init );
 
     function init() {
+
         $("tr.deck").draggable({
             scroll: false,
 
@@ -135,9 +137,18 @@ body { margin: 1em; -webkit-user-select: none; }
             self._dueTree = self.mw.col.sched.deckDueTree()
         tree = self._renderDeckTree(self._dueTree)
         stats = self._renderStats()
+        op = self._oldPos()
         self.web.stdHtml(self._body%dict(tree=tree, stats=stats), css=css,
-                         js=anki.js.jquery+anki.js.ui)
+                         js=anki.js.jquery+anki.js.ui, loadCB=lambda ok:\
+                         self.web.page().mainFrame().setScrollPosition(op))
+        self.web.key = "deckBrowser"
         self._drawButtons()
+
+    def _oldPos(self):
+        if self.web.key == "deckBrowser":
+            return self.web.page().mainFrame().scrollPosition()
+        else:
+            return QPoint(0,0)
 
     def _renderStats(self):
         cards, thetime = self.mw.col.db.first("""
@@ -145,8 +156,8 @@ select count(), sum(time)/1000 from revlog
 where id > ?""", (self.mw.col.sched.dayCutoff-86400)*1000)
         cards = cards or 0
         thetime = thetime or 0
-        buf = _("Studied %(a)d cards in %(b)s today.") % dict(
-            a=cards, b=fmtTimeSpan(thetime))
+        msgp1 = ngettext("Studied %d card", "Studied %d cards", cards) % cards
+        buf = "%s in %s today." % (msgp1, fmtTimeSpan(thetime))
         return buf
 
     def _renderDeckTree(self, nodes, depth=0):
@@ -161,13 +172,17 @@ where id > ?""", (self.mw.col.sched.dayCutoff-86400)*1000)
         else:
             buf = ""
         for node in nodes:
-            buf += self._deckRow(node, depth)
+            buf += self._deckRow(node, depth, len(nodes))
         if depth == 0:
             buf += self._topLevelDragRow()
         return buf
 
-    def _deckRow(self, node, depth):
+    def _deckRow(self, node, depth, cnt):
         name, did, due, lrn, new, children = node
+        if did == 1 and cnt > 1 and not children:
+            # if the default deck is empty, hide it
+            if not self.mw.col.db.scalar("select 1 from cards where did = 1"):
+                return ""
         # parent toggled for collapsing
         for parent in self.mw.col.decks.parents(did):
             if parent['collapsed']:
@@ -274,7 +289,7 @@ where id > ?""", (self.mw.col.sched.dayCutoff-86400)*1000)
                 "select count() from cards where did in {0} or "
                 "odid in {0}".format(ids2str(dids)))
             if cnt:
-                extra = _(" It has %d cards.") % cnt
+                extra = ngettext(" It has %d card.", " It has %d cards.", cnt) % cnt
             else:
                 extra = None
         if deck['dyn'] or not extra or askUser(

@@ -6,12 +6,13 @@ import time, os, stat, shutil, difflib, re, cgi
 import unicodedata as ucd
 import HTMLParser
 from aqt.qt import *
-from anki.utils import fmtTimeSpan, stripHTML, isMac, json, isWin
+from anki.utils import fmtTimeSpan, stripHTML, isMac, json
 from anki.hooks import addHook, runHook, runFilter
 from anki.sound import playFromText, clearAudioQueue, hasSound, play
 from aqt.utils import mungeQA, getBase, shortcut, openLink, tooltip
 from aqt.sound import getAudio
 import aqt
+from anki.lang import ngettext
 
 class Reviewer(object):
     "Manage reviews.  Maintains a separate state."
@@ -82,9 +83,9 @@ class Reviewer(object):
             self._showQuestion()
         elapsed = self.mw.col.timeboxReached()
         if elapsed:
-            tooltip(_("%(cards)d cards studied in %(mins)s minutes.") %
-                    dict(cards=elapsed[1], mins=elapsed[0]/60),
-                    period=5000)
+            part1 = ngettext("%d card studied in", "%d cards studied in", elapsed[1]) % elapsed[1]
+            part2 = ngettext("%s minute.", "%s minutes.", elapsed[0]/60) % (elapsed[0]/60)
+            tooltip("%s %s" % (part1, part2), period=5000)
             self.mw.col.startTimebox()
 
     # Audio
@@ -110,7 +111,6 @@ class Reviewer(object):
 <div id=qa></div>
 <script>
 var ankiPlatform = "desktop";
-var isWin = %s;
 var typeans;
 function _updateQA (q, answerMode, klass) {
     $("#qa").html(q);
@@ -126,7 +126,6 @@ function _updateQA (q, answerMode, klass) {
     if (klass) {
         document.body.className = klass;
     }
-    if (isWin) { setTimeout(200, function () { _imageLoadHack(0); }); }
 };
 
 function _toggleStar (show) {
@@ -142,32 +141,13 @@ function _getTypedText () {
         py.link("typeans:"+typeans.value);
     }
 };
-
 function _typeAnsPress() {
     if (window.event.keyCode === 13) {
-        py.link("ans");
-    }
-}
-
-function _imageLoadHack (tries) {
-    var spacing = [1000, 2000];
-    var checkAgain = false;
-    /* try to work around win32 intermittently failing to load images in qt4.7 */
-    $('img').each(function (idx) {
-        if (!this.complete) {
-            checkAgain = true;
-            this.src += '?'+(new Date().getTime());
-        }
-    });
-    if (checkAgain && tries < spacing.length) {
-        // check again later
-        console.log("resched for " + spacing[tries]);
-        setTimeout(function () { _imageLoadHack(tries+1); },
-            spacing[tries]);
+        py.link("ansHack");
     }
 }
 </script>
-""" % json.dumps(isWin)
+"""
 
     def _initWeb(self):
         self._reps = 0
@@ -278,12 +258,18 @@ The front of this card is empty. Please run Tools>Maintenance>Empty Cards.""")
             self.web.eval("$('#typeans').blur();")
             return True
 
+    def _showAnswerHack(self):
+        # on <qt4.8, calling _showAnswer() directly fails to show images on
+        # the answer side. But if we trigger it via the bottom web's python
+        # link, it inexplicably works.
+        self.bottom.web.eval("py.link('ans');")
+
     def _keyHandler(self, evt):
         key = unicode(evt.text())
         if key == "e":
             self.mw.onEditCurrent()
         elif key == " " and self.state == "question":
-            self._showAnswer()
+            self._showAnswerHack()
         elif key == "r":
             self.replayAudio()
         elif key == "*":
@@ -306,6 +292,8 @@ The front of this card is empty. Please run Tools>Maintenance>Empty Cards.""")
     def _linkHandler(self, url):
         if url == "ans":
             self._showAnswer()
+        elif url == "ansHack":
+            self.mw.progress.timer(100, self._showAnswerHack, False)
         elif url.startswith("ease"):
             self._answerCard(int(url[4:]))
         elif url == "edit":
@@ -599,7 +587,7 @@ function showAnswer(txt) {
         counts[idx] = "<u>%s</u>" % (counts[idx])
         space = " + "
         ctxt = '<font color="#000099">%s</font>' % counts[0]
-        ctxt += space + '<font color="#990000">%s</font>' % counts[1]
+        ctxt += space + '<font color="#C35617">%s</font>' % counts[1]
         ctxt += space + '<font color="#007700">%s</font>' % counts[2]
         return ctxt
 
