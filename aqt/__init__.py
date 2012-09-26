@@ -8,11 +8,12 @@ import anki.lang
 from anki.consts import HELP_SITE as appHelpSite
 from anki.hooks import runHook
 
-appVersion="2.0-rc4"
+appVersion="2.0-rc6"
 appWebsite="http://ankisrs.net/"
-appChanges="http://ankisrs.net/docs/dev/changes.html"
+appChanges="http://ankisrs.net/docs/changes.html"
 appDonate="http://ankisrs.net/support/"
-appShared="http://beta.ankiweb.net/shared/"
+appShared="https://ankiweb.net/shared/"
+appUpdate="https://ankiweb.net/update/desktop"
 mw = None # set on init
 
 moduleDir = os.path.split(os.path.dirname(os.path.abspath(__file__)))[0]
@@ -134,7 +135,6 @@ class AnkiApp(QApplication):
             self._srv = QLocalServer(self)
             self.connect(self._srv, SIGNAL("newConnection()"), self.onRecv)
             self._srv.listen(self.KEY)
-            # if we were given a file on startup, send import it
         else:
             # we accept only one command line argument. if it's missing, send
             # a blank screen to just raise the existing window
@@ -161,7 +161,7 @@ class AnkiApp(QApplication):
             sys.stderr.write(sock.errorString())
             return
         buf = sock.readAll()
-        self.emit(SIGNAL("appMsg"), unicode(buf))
+        self.emit(SIGNAL("appMsg"), buf)
         sock.disconnectFromServer()
 
     # OS X file/url handler

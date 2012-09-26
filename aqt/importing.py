@@ -1,11 +1,12 @@
 # Copyright: Damien Elmes <anki@ichi2.net>
 # License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
 
-import os, copy, time, sys, re, traceback
+import os, copy, time, sys, re, traceback, zipfile, json
 from aqt.qt import *
 import anki
 import anki.importing as importing
-from aqt.utils import getOnlyText, getFile, showText, showWarning, openHelp
+from aqt.utils import getOnlyText, getFile, showText, showWarning, openHelp, \
+    askUserDialog, askUser
 from anki.errors import *
 from anki.hooks import addHook, remHook
 import aqt.forms, aqt.modelchooser, aqt.deckchooser
@@ -279,7 +280,12 @@ def importFile(mw, file):
         except Exception, e:
             msg = unicode(e)
             if msg == "unknownFormat":
-                showWarning(_("Unknown file format."))
+                if ext == ".anki2":
+                    showWarning(_("""\
+.anki2 files are not designed for importing. If you're trying to restore from a \
+backup, please see the 'Backups' section of the user manual."""))
+                else:
+                    showWarning(_("Unknown file format."))
             else:
                 msg = _("Import failed. Debugging info:\n")
                 msg += unicode(traceback.format_exc(), "ascii", "replace")
@@ -289,13 +295,20 @@ def importFile(mw, file):
             mw.progress.finish()
         diag = ImportDialog(mw, importer)
     else:
+        # if it's an apkg, we need to ask whether to import/replace
+        if importer.__class__.__name__ == "AnkiPackageImporter":
+            if not setupApkgImport(mw, importer):
+                return
         mw.progress.start(immediate=True)
         try:
             importer.run()
         except Exception, e:
             if "invalidFile" in unicode(e):
-                showWarning(_("""\
-Invalid file. Please run a DB check in Anki 1.2 and try again."""))
+                msg = _("""\
+Invalid file. Please run a DB check in Anki 1.2 and try again.""")
+                msg += _(""" \
+Even if the DB check reports 'no problems found', a subsequent import should work.""")
+                showWarning(msg)
             elif "readonly" in unicode(e):
                 showWarning(_("""\
 Unable to import from a read-only file."""))
@@ -308,3 +321,44 @@ Unable to import from a read-only file."""))
         finally:
             mw.progress.finish()
         mw.reset()
+
+def setupApkgImport(mw, importer):
+    diag = askUserDialog(_("""\
+Would you like to add to your collection, or replace it?"""),
+            [_("Add"),
+             _("Replace"),
+             _("Cancel")])
+    diag.setIcon(QMessageBox.Question)
+    diag.setDefault(0)
+    ret = diag.run()
+    if ret == _("Add"):
+        return True
+    elif ret == _("Cancel"):
+        return False
+    if not askUser(_("""\
+This will delete your existing collection and replace it with the data in \
+the file you're importing. Are you sure?"""), msgfunc=QMessageBox.warning):
+        return False
+    # schedule replacement; don't do it immediately as we may have been
+    # called as part of the startup routine
+    mw.progress.start(immediate=True)
+    mw.progress.timer(
+        100, lambda mw=mw, f=importer.file: replaceWithApkg(mw, f), False)
+
+def replaceWithApkg(mw, file):
+    # unload collection, which will also trigger a backup
+    mw.unloadCollection()
+    # overwrite collection
+    z = zipfile.ZipFile(file)
+    z.extract("collection.anki2", mw.pm.profileFolder())
+    # because users don't have a backup of media, it's safer to import new
+    # data and rely on them running a media db check to get rid of any
+    # unwanted media. in the future we might also want to deduplicate this
+    # step
+    d = os.path.join(mw.pm.profileFolder(), "collection.media")
+    for c, file in json.loads(z.read("media")).items():
+        open(os.path.join(d, file), "wb").write(z.read(str(c)))
+    z.close()
+    # reload
+    mw.loadCollection()
+    mw.progress.finish()

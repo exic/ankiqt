@@ -19,7 +19,6 @@ from aqt.utils import saveGeom, restoreGeom, showInfo, showWarning, \
     saveState, restoreState, getOnlyText, askUser, GetTextDialog, \
     askUserDialog, applyStyles, getText, showText, showCritical, getFile, \
     tooltip, openHelp, openLink
-from anki.lang import ngettext
 
 class AnkiQt(QMainWindow):
     def __init__(self, app, profileManager, args):
@@ -249,7 +248,14 @@ To import into a password protected profile, please open the profile before atte
 
     def loadCollection(self):
         self.hideSchemaMsg = True
-        self.col = Collection(self.pm.collectionPath())
+        try:
+            self.col = Collection(self.pm.collectionPath())
+        except:
+            # move back to profile manager
+            showWarning("""\
+Your collection is corrupt. Please see the manual for \
+how to restore from a backup.""")
+            return self.unloadProfile()
         self.hideSchemaMsg = False
         self.progress.setupDB(self.col.db)
         self.moveToState("deckBrowser")
@@ -274,7 +280,7 @@ To import into a password protected profile, please open the profile before atte
         # find existing backups
         backups = []
         for file in os.listdir(dir):
-            m = re.search("backup-(\d+).anki2", file)
+            m = re.search("backup-(\d+).apkg", file)
             if not m:
                 # unknown file
                 continue
@@ -286,8 +292,11 @@ To import into a password protected profile, please open the profile before atte
         else:
             n = backups[-1][0] + 1
         # do backup
-        newpath = os.path.join(dir, "backup-%d.anki2" % n)
-        shutil.copyfile(path, newpath)
+        newpath = os.path.join(dir, "backup-%d.apkg" % n)
+        z = zipfile.ZipFile(newpath, "w", zipfile.ZIP_DEFLATED)
+        z.write(path, "collection.anki2")
+        z.writestr("media", "{}")
+        z.close()
         # remove if over
         if len(backups) + 1 > nbacks:
             delete = len(backups) + 1 - nbacks
@@ -758,18 +767,14 @@ and check the statistics for a home deck instead."""))
         self.connect(self.autoUpdate, SIGNAL("clockIsOff"), self.clockIsOff)
         self.autoUpdate.start()
 
-    def newVerAvail(self, data):
-        if self.pm.profile['suppressUpdate'] < data['latestVersion']:
-            aqt.update.askAndUpdate(self, data)
+    def newVerAvail(self, ver):
+        if self.pm.meta['suppressUpdate'] != ver:
+            aqt.update.askAndUpdate(self, ver)
 
     def newMsg(self, data):
         aqt.update.showMessages(self, data)
 
-    def clockIsOff(self, diff):
-        if diff < 0:
-            ret = _("late")
-        else:
-            ret = _("early")
+    def clockIsOff(self):
         showWarning("""\
 In order to ensure your collection works correctly when moved between \
 devices, Anki requires the system clock to be set correctly. Your system \
@@ -1050,6 +1055,6 @@ Please ensure a profile is open and Anki is not busy, then try again."""),
             return
         # import
         if not os.path.exists(buf):
-            return showInfo(_("Provided file does not exist."))
+            return showInfo(_("Please use File>Import to import this file."))
         import aqt.importing
         aqt.importing.importFile(self, buf)
