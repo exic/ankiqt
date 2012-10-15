@@ -674,7 +674,7 @@ upload, overwriting any changes either here or on AnkiWeb. Proceed?""")):
         if not deck:
             return
         if deck['dyn']:
-            showInfo(_("""\
+            showWarning(_("""\
 As cards are removed from a filtered deck as they are answered, viewing the \
 statistics of a filtered deck will only show you reviews for cards with \
 multiple steps. To get an accurate report, please empty the filtered deck \
@@ -1057,6 +1057,8 @@ Please ensure a profile is open and Anki is not busy, then try again."""),
         if buf == "raise":
             return
         # import
+        if not isinstance(buf, unicode):
+            buf = unicode(buf, "utf8", "ignore")
         if not os.path.exists(buf):
             return showInfo(_("Please use File>Import to import this file."))
         import aqt.importing
