@@ -3,7 +3,7 @@
 # License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
 
 from aqt.qt import *
-import re, os, sys, urllib2, ctypes, traceback, urllib2
+import re, os, sys, urllib2, ctypes, traceback
 from anki.utils import stripHTML, isWin, isMac, namedtmp, json
 from anki.sound import play
 from anki.hooks import runHook, runFilter
@@ -480,9 +480,9 @@ class Editor(object):
             txt = unicode(urllib2.unquote(
                 txt.encode("utf8")), "utf8", "replace")
             self.note.fields[self.currentField] = txt
-            self.mw.requireReset()
             if not self.addMode:
                 self.note.flush()
+                self.mw.requireReset()
             if type == "blur":
                 self.disableButtons()
                 # run any filters
@@ -710,9 +710,14 @@ class Editor(object):
     def onCloze(self):
         # check that the model is set up for cloze deletion
         if '{{cloze:' not in self.note.model()['tmpls'][0]['qfmt']:
-            showInfo(_("""\
+            if self.addMode:
+                showInfo(_("""\
 To use this button, please select the Cloze note type. To learn more, \
 please click the help button."""), help="cloze")
+            else:
+                showInfo(_("""\
+To make a cloze deletion on an existing note, you need to change it \
+to a cloze type first, via Edit>Change Note Type."""))
             return
         # find the highest existing cloze
         highest = 0
@@ -776,6 +781,7 @@ please click the help button."""), help="cloze")
         def accept(file):
             self.addMedia(file, canDelete=True)
         file = getFile(self.widget, _("Add Media"), accept, key, key="media")
+        self.parentWindow.activateWindow()
 
     def addMedia(self, path, canDelete=False):
         html = self._addMedia(path, canDelete)
@@ -789,7 +795,7 @@ please click the help button."""), help="cloze")
         if canDelete and self.mw.pm.profile['deleteMedia']:
             if os.path.abspath(name) != os.path.abspath(path):
                 try:
-                    os.unlink(old)
+                    os.unlink(path)
                 except:
                     pass
         # return a local html link

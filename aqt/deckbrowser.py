@@ -44,13 +44,11 @@ class DeckBrowser(object):
             self._onShared()
         elif cmd == "import":
             self.mw.onImport()
-        elif cmd == "cram":
-            self.mw.onCram()
         elif cmd == "create":
-            showInfo(_("""\
-To create a new deck, simply enter its name into any place that ask for \
-a deck name, such as when adding notes, changing a card's deck while browsing, \
-or importing text files."""))
+            deck = getOnlyText(_("New deck name:"))
+            if deck:
+                self.mw.col.decks.id(deck)
+                self.refresh()
         elif cmd == "drag":
             draggedDeckDid, ontoDeckDid = arg.split(',')
             self._dragDeckOnto(draggedDeckDid, ontoDeckDid)
@@ -58,9 +56,8 @@ or importing text files."""))
             self._collapse(arg)
 
     def _keyHandler(self, evt):
+        # currently does nothing
         key = unicode(evt.text())
-        if key == "f":
-            self.mw.onCram()
 
     def _selDeck(self, did):
         self.mw.col.decks.select(did)
@@ -85,6 +82,7 @@ body { margin: 1em; -webkit-user-select: none; }
 .count { width: 6em; text-align: right; }
 .collapse { color: #000; text-decoration:none; display:inline-block;
     width: 1em; }
+.filtered { color: #00a !important; }
 """ % dict(width=_dragIndicatorBorderWidth)
 
     _body = """
@@ -157,7 +155,7 @@ where id > ?""", (self.mw.col.sched.dayCutoff-86400)*1000)
         thetime = thetime or 0
         msgp1 = ngettext("%d card", "%d cards", cards) % cards
         buf = _("Studied %(a)s in %(b)s today.") % dict(a=msgp1,
-                                                        b=fmtTimeSpan(thetime, unit=2))
+                                                        b=fmtTimeSpan(thetime, unit=1))
         return buf
 
     def _renderDeckTree(self, nodes, depth=0):
@@ -179,6 +177,7 @@ where id > ?""", (self.mw.col.sched.dayCutoff-86400)*1000)
 
     def _deckRow(self, node, depth, cnt):
         name, did, due, lrn, new, children = node
+        deck = self.mw.col.decks.get(did)
         if did == 1 and cnt > 1 and not children:
             # if the default deck is empty, hide it
             if not self.mw.col.db.scalar("select 1 from cards where did = 1"):
@@ -204,9 +203,14 @@ where id > ?""", (self.mw.col.sched.dayCutoff-86400)*1000)
             collapse = "<a class=collapse href='collapse:%d'>%s</a>" % (did, prefix)
         else:
             collapse = "<span class=collapse></span>"
+        if deck['dyn']:
+            extraclass = "filtered"
+        else:
+            extraclass = ""
         buf += """
-<td class=decktd colspan=5>%s%s<a class=deck href='open:%d'>%s</a></td>"""% (
-            indent(), collapse, did, name)
+
+        <td class=decktd colspan=5>%s%s<a class="deck %s" href='open:%d'>%s</a></td>"""% (
+            indent(), collapse, extraclass, did, name)
         # due counts
         def nonzeroColour(cnt, colour):
             if not cnt:
@@ -309,9 +313,8 @@ where id > ?""", (self.mw.col.sched.dayCutoff-86400)*1000)
     def _drawButtons(self):
         links = [
             ["", "shared", _("Get Shared")],
-            #["", "create", _("Create")],
+            ["", "create", _("Create Deck")],
             ["Ctrl+I", "import", _("Import File")],
-            ["F", "cram", _("Filter/Cram")],
         ]
         buf = ""
         for b in links:

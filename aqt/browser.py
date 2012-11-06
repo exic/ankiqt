@@ -149,27 +149,30 @@ class DataModel(QAbstractTableModel):
         sm.clear()
         # restore selection
         items = QItemSelection()
-        focused = None
-        first = None
         count = 0
+        firstIdx = None
+        focusedIdx = None
         for row, id in enumerate(self.cards):
+            # if the id matches the focused card, note the index
+            if self.focusedCard == id:
+                focusedIdx = self.index(row, 0)
+                items.select(focusedIdx, focusedIdx)
+                self.focusedCard = None
+            # if the card was previously selected, select again
             if id in self.selectedCards:
                 count += 1
                 idx = self.index(row, 0)
                 items.select(idx, idx)
-                if not first:
-                    first = idx
-                # note idx of focused card
-                if self.focusedCard:
-                    focused = idx
-                    # avoid further comparisons
-                    self.focusedCard = None
-        # and focus previously focused or first in selection
-        focus = focused or first
+                # note down the first card of the selection, in case we don't
+                # have a focused card
+                if not firstIdx:
+                    firstIdx = idx
+        # focus previously focused or first in selection
+        idx = focusedIdx or firstIdx
         tv = self.browser.form.tableView
-        if focus:
-            tv.selectRow(focus.row())
-            tv.scrollTo(focus, tv.PositionAtCenter)
+        if idx:
+            tv.selectRow(idx.row())
+            tv.scrollTo(idx, tv.PositionAtCenter)
             if count < 500:
                 # discard large selections; they're too slow
                 sm.select(items, QItemSelectionModel.SelectCurrent |
@@ -201,7 +204,14 @@ class DataModel(QAbstractTableModel):
                 t += " %d" % (c.ord+1)
             return t
         elif type == "cardDue":
-            return self.nextDue(c, index)
+            # catch invalid dates
+            try:
+                t = self.nextDue(c, index)
+            except:
+                t = ""
+            if c.queue < 0:
+                t = "(" + t + ")"
+            return t
         elif type == "noteCrt":
             return time.strftime("%Y-%m-%d", time.localtime(c.note().id/1000))
         elif type == "noteMod":
@@ -261,14 +271,14 @@ class DataModel(QAbstractTableModel):
     def nextDue(self, c, index):
         if c.odid:
             return _("(filtered)")
-        elif c.queue == 0:
-            return str(c.due)
         elif c.queue == 1:
             date = c.due
-        elif c.queue in (2,3):
+        elif c.queue == 0 or c.type == 0:
+            return str(c.due)
+        elif c.queue in (2,3) or (c.type == 2 and c.queue < 0):
             date = time.time() + ((c.due - self.col.sched.today)*86400)
         else:
-            return _("(susp.)")
+            return ""
         return time.strftime("%Y-%m-%d", time.localtime(date))
 
 # Line painter
@@ -387,6 +397,14 @@ class Browser(QMainWindow):
         c(self.tagCut2, SIGNAL("activated()"), self.deleteTags)
         self.tagCut3 = QShortcut(QKeySequence("Ctrl+K"), self)
         c(self.tagCut3, SIGNAL("activated()"), self.onMark)
+        # deletion
+        self.delCut1 = QShortcut(QKeySequence("Delete"), self)
+        self.delCut1.setAutoRepeat(False)
+        c(self.delCut1, SIGNAL("activated()"), self.deleteNotes)
+        if isMac:
+            self.delCut2 = QShortcut(QKeySequence("Backspace"), self)
+            self.delCut2.setAutoRepeat(False)
+            c(self.delCut2, SIGNAL("activated()"), self.deleteNotes)
         # add-on hook
         runHook('browser.setupMenus', self)
         self.mw.maybeHideAccelerators(self)
@@ -419,12 +437,6 @@ class Browser(QMainWindow):
             if evt.key() in (Qt.Key_Return, Qt.Key_Enter):
                 item = self.form.tree.currentItem()
                 self.onTreeClick(item, 0)
-        elif self.mw.app.focusWidget() == self.form.tableView:
-            keys = [Qt.Key_Delete]
-            if isMac:
-                keys.append(Qt.Key_Backspace)
-            if evt.key() in keys:
-                self.deleteNotes()
 
     def setupColumns(self):
         self.columns = [
@@ -471,14 +483,24 @@ class Browser(QMainWindow):
             self.form.searchEdit.clear()
             self.form.searchEdit.addItems(sh)
             self.mw.pm.profile['searchHistory'] = sh
-        if self.mw.state == "review":
-            txt = txt.replace("is:current", "nid:%d"%self.mw.reviewer.card.nid)
+        if self.mw.state == "review" and "is:current" in txt:
+            # search for current card, but set search to easily display whole
+            # deck
+            if reset:
+                self.model.beginReset()
+                self.model.focusedCard = self.mw.reviewer.card.id
+            self.model.search("nid:%d"%self.mw.reviewer.card.nid, False)
+            if reset:
+                self.model.endReset()
+            self.form.searchEdit.lineEdit().setText(prompt)
+            self.form.searchEdit.lineEdit().selectAll()
+            return
         elif "is:current" in txt:
             self.form.searchEdit.lineEdit().setText(prompt)
             self.form.searchEdit.lineEdit().selectAll()
         elif txt == prompt:
-            self.form.searchEdit.lineEdit().setText("deck:current")
-            txt = "deck:current"
+            self.form.searchEdit.lineEdit().setText("deck:current ")
+            txt = "deck:current "
         self.model.search(txt, reset)
         if not self.model.cards:
             # no row change will fire
@@ -939,9 +961,15 @@ where id in %s""" % ids2str(sf))
         self.mw.checkpoint(_("Change Deck"))
         mod = intTime()
         usn = self.col.usn()
+        # normal cards
+        cids = self.selectedCards()
+        scids = ids2str(cids)
+        # remove any cards from filtered deck first
+        self.col.sched.remFromDyn(cids)
+        # then move into new deck
         self.col.db.execute("""
-update cards set usn=?, mod=?, did=? where odid=0 and id in """ + ids2str(
-                self.selectedCards()), usn, mod, did)
+update cards set usn=?, mod=?, did=? where id in """ + scids,
+                            usn, mod, did)
         self.onSearch(reset=False)
         self.mw.requireReset()
         self.model.endReset()
@@ -1130,8 +1158,7 @@ update cards set usn=?, mod=?, did=? where odid=0 and id in """ + ids2str(
                                             field,
                                             frm.ignoreCase.isChecked())
         except sre_constants.error:
-            ui.utils.showInfo(_("Invalid regular expression."),
-                              parent=self)
+            showInfo(_("Invalid regular expression."), parent=self)
             return
         else:
             self.onSearch()

@@ -58,6 +58,12 @@ class Reviewer(object):
     ##########################################################################
 
     def nextCard(self):
+        elapsed = self.mw.col.timeboxReached()
+        if elapsed:
+            part1 = ngettext("%d card studied in", "%d cards studied in", elapsed[1]) % elapsed[1]
+            part2 = ngettext("%s minute.", "%s minutes.", elapsed[0]/60) % (elapsed[0]/60)
+            tooltip("%s %s" % (part1, part2), period=5000)
+            self.mw.col.startTimebox()
         if self.cardQueue:
             # undone/edited cards to show
             c = self.cardQueue.pop()
@@ -80,12 +86,6 @@ class Reviewer(object):
             self._initWeb()
         else:
             self._showQuestion()
-        elapsed = self.mw.col.timeboxReached()
-        if elapsed:
-            part1 = ngettext("%d card studied in", "%d cards studied in", elapsed[1]) % elapsed[1]
-            part2 = ngettext("%s minute.", "%s minutes.", elapsed[0]/60) % (elapsed[0]/60)
-            tooltip("%s %s" % (part1, part2), period=5000)
-            self.mw.col.startTimebox()
 
     # Audio
     ##########################################################################
@@ -267,8 +267,11 @@ The front of this card is empty. Please run Tools>Maintenance>Empty Cards.""")
         key = unicode(evt.text())
         if key == "e":
             self.mw.onEditCurrent()
-        elif (key == " " or evt.key() in (Qt.Key_Return, Qt.Key_Enter)) and self.state == "question":
-            self._showAnswerHack()
+        elif (key == " " or evt.key() in (Qt.Key_Return, Qt.Key_Enter)):
+            if self.state == "question":
+                self._showAnswerHack()
+            elif self.state == "answer":
+                self._answerCard(self._defaultEase())
         elif key == "r" or evt.key() == Qt.Key_F5:
             self.replayAudio()
         elif key == "*":
@@ -312,7 +315,7 @@ The front of this card is empty. Please run Tools>Maintenance>Empty Cards.""")
 hr { background-color:#ccc; margin: 1em; }
 body { margin:1.5em; }
 img { max-width: 95%; max-height: 95%; }
-.marked { position:absolute; right: 7; top: 7; display: none; }
+.marked { position:absolute; right: 7px; top: 7px; display: none; }
 #typeans { width: 100%; }
 """
 
@@ -656,7 +659,7 @@ function showAnswer(txt) {
             [_("Bury Note"), "-", self.onBuryNote],
             [_("Suspend Note"), "!", self.onSuspend],
             [_("Delete Note"), "Delete", self.onDelete],
-            [_("Card Options"), "O", self.onOptions],
+            [_("Options"), "O", self.onOptions],
             None,
             [_("Replay Audio"), "R", self.replayAudio],
             [_("Record Own Voice"), "Shift+V", self.onRecordVoice],

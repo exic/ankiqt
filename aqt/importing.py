@@ -6,7 +6,7 @@ from aqt.qt import *
 import anki
 import anki.importing as importing
 from aqt.utils import getOnlyText, getFile, showText, showWarning, openHelp, \
-    askUserDialog, askUser
+    askUserDialog, askUser, tooltip
 from anki.errors import *
 from anki.hooks import addHook, remHook
 import aqt.forms, aqt.modelchooser, aqt.deckchooser
@@ -138,7 +138,8 @@ you can enter it here. Use \\t to represent tab."""),
             showWarning(
                 _("The first field of the note type must be mapped."))
             return
-        self.importer.update = self.frm.updateNotes.isChecked()
+        self.importer.importMode = self.frm.importMode.currentIndex()
+        self.importer.allowHTML = self.frm.allowHTML.isChecked()
         did = self.deck.selectedId()
         if did != self.importer.model['did']:
             self.importer.model['did'] = did
@@ -309,24 +310,21 @@ Unable to import from a read-only file."""))
                 msg += unicode(traceback.format_exc(), "ascii", "replace")
                 showText(msg)
         else:
-            showText("\n".join(importer.log))
+            log = "\n".join(importer.log)
+            if "\n" not in log:
+                tooltip(log)
+            else:
+                showText(log)
         finally:
             mw.progress.finish()
         mw.reset()
 
 def setupApkgImport(mw, importer):
-    diag = askUserDialog(_("""\
-Would you like to add to your collection, or replace it?"""),
-            [_("Add"),
-             _("Replace"),
-             _("Cancel")])
-    diag.setIcon(QMessageBox.Question)
-    diag.setDefault(0)
-    ret = diag.run()
-    if ret == _("Add"):
+    base = os.path.basename(importer.file).lower()
+    full = (base == "collection.apkg") or re.match("backup-\d+.apkg", base)
+    if not full:
+        # adding
         return True
-    elif ret == _("Cancel"):
-        return False
     if not askUser(_("""\
 This will delete your existing collection and replace it with the data in \
 the file you're importing. Are you sure?"""), msgfunc=QMessageBox.warning):
