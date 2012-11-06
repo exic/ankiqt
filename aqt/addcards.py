@@ -17,9 +17,8 @@ import aqt.editor, aqt.modelchooser, aqt.deckchooser
 
 class AddCards(QDialog):
 
-    def __init__(self, name, mw):
+    def __init__(self, mw):
         QDialog.__init__(self, None, Qt.Window)
-        self.name = name
         self.mw = mw
         self.form = aqt.forms.addcards.Ui_Dialog()
         self.form.setupUi(self)
@@ -33,8 +32,8 @@ class AddCards(QDialog):
         self.history = []
         self.forceClose = False
         restoreGeom(self, "add")
-        addHook('reset' + name, self.onReset)
-        addHook('currentModelChanged' + name, self.onReset)
+        addHook('reset', self.onReset)
+        addHook('currentModelChanged', self.onReset)
         self.show()
         self.setupNewNote()
 
@@ -44,7 +43,7 @@ class AddCards(QDialog):
 
     def setupChoosers(self):
         self.modelChooser = aqt.modelchooser.ModelChooser(
-            self.mw, self.form.modelArea, True, self.name)
+            self.mw, self.form.modelArea)
         self.deckChooser = aqt.deckchooser.DeckChooser(
             self.mw, self.form.deckArea)
 
@@ -70,8 +69,6 @@ class AddCards(QDialog):
         bb.addButton(self.helpButton,
                                         QDialogButtonBox.HelpRole)
         self.connect(self.helpButton, SIGNAL("clicked()"), self.helpRequested)
-
-
         # history
         b = bb.addButton(
             _("History")+ u" ▾", ar)
@@ -80,7 +77,6 @@ class AddCards(QDialog):
         self.historyButton = b
 
     def setupNewNote(self, set=True):
-        self.modelChooser.updateCollection()
         f = self.mw.col.newNote()
         f.tags = f.model()['tags']
         if set:
@@ -173,8 +169,8 @@ question on all cards."""), help="AddItems")
     def reject(self):
         if not self.canClose():
             return
-        remHook('reset' + self.name, self.onReset)
-        remHook('currentModelChanged' + self.name, self.onReset)
+        remHook('reset', self.onReset)
+        remHook('currentModelChanged', self.onReset)
         clearAudioQueue()
         self.removeTempNote(self.editor.note)
         self.editor.setNote(None)
@@ -182,7 +178,7 @@ question on all cards."""), help="AddItems")
         self.deckChooser.cleanup()
         self.mw.maybeReset()
         saveGeom(self, "add")
-        aqt.dialogs.close(self.name)
+        aqt.dialogs.close("AddCards")
         QDialog.reject(self)
 
     def canClose(self):

@@ -10,7 +10,7 @@ import aqt
 
 class ModelChooser(QHBoxLayout):
 
-    def __init__(self, mw, widget, label=True, name = ""):
+    def __init__(self, mw, widget, label=True):
         QHBoxLayout.__init__(self)
         self.widget = widget
         self.mw = mw
@@ -19,8 +19,7 @@ class ModelChooser(QHBoxLayout):
         self.setMargin(0)
         self.setSpacing(8)
         self.setupModels()
-        self.name = name
-        addHook('reset' + name, self.onReset)
+        addHook('reset', self.onReset)
         self.widget.setLayout(self)
 
     def setupModels(self):
@@ -43,7 +42,7 @@ class ModelChooser(QHBoxLayout):
         self.updateModels()
 
     def cleanup(self):
-        remHook('reset' + self.name, self.onReset)
+        remHook('reset', self.onReset)
 
     def onReset(self):
         self.updateModels()
@@ -73,28 +72,13 @@ class ModelChooser(QHBoxLayout):
             buttons=[edit], cancel=False)
         if not ret.name:
             return
-
-        self.updateCollection(ret.name)
-
-
-    def updateCollection(self, new_model_name = None):
-        really_changed = new_model_name
-        if not really_changed:
-            # only update collection with current name
-            new_model_name = str(self.models.text())
-
-        m = self.deck.models.byName(new_model_name)
-        if not m:
-            return
+        m = self.deck.models.byName(ret.name)
         self.deck.conf['curModel'] = m['id']
         cdeck = self.deck.decks.current()
         cdeck['mid'] = m['id']
         self.deck.decks.save(cdeck)
-        self.updateModels()
-
-        if really_changed:
-            runHook("currentModelChanged" + self.name)
-#        self.mw.reset()
+        runHook("currentModelChanged")
+        self.mw.reset()
 
     def updateModels(self):
         self.models.setText(self.deck.models.current()['name'])
